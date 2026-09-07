@@ -1,0 +1,9 @@
+# 建议在 GPU 环境安装(CUDA 版 torch):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+torch>=2.1
+torchvision>=0.16
+open-clip-torch>=2.24
+Pillow
+numpy
+opencv-python-headless
+scikit-learn

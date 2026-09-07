@@ -1,0 +1,9 @@
+# 环境与数据(不上传)
+.venv/
+data/
+__pycache__/
+*.pyc
+
+# 实验产物:log 与可视化留本地存档
+logs/
+*.html
