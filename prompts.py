@@ -1,62 +1,70 @@
-"""WinCLIP 文本侧:状态词 × 模板 → 正常/异常双分支 prompt 集合。
+"""WinCLIP 文本侧:Compositional Prompt Ensemble(CPE)。
 
-机制与论文一致:CLIP 文本编码器给出每类一个"正常态"向量与一组
-"异常态"向量,图像 patch 与两侧的相似度之差构成缺陷分数。
+论文设计:状态词(state words,描述"正常/异常"两种状态的短语)
+× 句式模板(sentence templates,22 种拍照/场景句式)构成 prompt 集合,
+编码后**逐标签平均**成 1 个正常原型 + 1 个异常原型 → 与图像特征对比。
+
+注意状态词自带 {} 占位("flawless {}"),模板再嵌状态词:
+    模板.format(状态.format(物体名))
+如 "a photo of a {} for anomaly detection.".format("damaged bottle")
 """
 from __future__ import annotations
 
-# 模板:多个句式的文本集成可提升 CLIP 零样本对齐的稳定性
-TEMPLATES = [
-    "a photo of {noun}",
-    "a photo of the {noun}",
-    "an image of {noun}",
-    "a picture of {noun}",
-]
-
-# 正常状态词(目标状态词的 normal 侧;few-shot 时此分支可由真实正常
-# 样本的 patch 特征替代/校准)
+# ---- 状态词(与论文/官方复现一致)-----------------------------------------
 NORMAL_STATE_WORDS = [
-    "perfect",
-    "normal",
-    "undamaged",
+    "{}",                    # 裸名词本身即"正常态"描述(CLIP 对齐先验)
+    "flawless {}", "perfect {}", "unblemished {}",
+    "{} without flaw", "{} without defect", "{} without damage",
 ]
 
-# 异常状态词:覆盖 MVTec 主要缺陷语义(裂纹/刮伤/凹痕/污渍/变形/缺失等),
-# 同一状态词对多类缺陷有共享语义,是 zero-shot 无需缺陷样本的关键
 ABNORMAL_STATE_WORDS = [
-    "damaged", "broken", "cracked", "scratched", "dented", "stained",
-    "deformed", "incomplete", "defective", "flawed",
+    "damaged {}",
+    "{} with flaw", "{} with defect", "{} with damage",
 ]
 
-# 部分类的状态词语义微调:MVTec 无 crack 类的类别(如 bottle 的
-# broken_large 是断裂),保持通用词即可,靠类别名词短语兜底。
+# ---- 句式模板(22 条,覆盖亮度/模糊/远近/用途等拍照变体)---------------------
+TEMPLATES = [
+    "a cropped photo of the {}.",
+    "a cropped photo of a {}.",
+    "a close-up photo of a {}.",
+    "a close-up photo of the {}.",
+    "a bright photo of a {}.",
+    "a bright photo of the {}.",
+    "a dark photo of a {}.",
+    "a dark photo of the {}.",
+    "a jpeg corrupted photo of a {}.",
+    "a jpeg corrupted photo of the {}.",
+    "a blurry photo of the {}.",
+    "a blurry photo of a {}.",
+    "a photo of the {}.",
+    "a photo of a {}.",
+    "a photo of a small {}.",
+    "a photo of the small {}.",
+    "a photo of a large {}.",
+    "a photo of the large {}.",
+    "a photo of a {} for visual inspection.",
+    "a photo of the {} for visual inspection.",
+    "a photo of a {} for anomaly detection.",
+    "a photo of the {} for anomaly detection.",
+]
 
 
-def _noun_phrases(cls_noun: str, state_words) -> list[str]:
-    """(状态词 × 模板) → 文本列表。"""
-    out = []
-    for w in state_words:
-        for t in TEMPLATES:
-            out.append(t.format(noun=f"{w} {cls_noun}"))
-    return out
+def build_class_prompts(cls_name: str) -> dict[str, list[str]]:
+    """某物体名(如 "bottle")→ {'normal': [...], 'abnormal': [...]}。
 
+    排列按状态词主序(每个状态词下所有模板连续),以便 reshape 求均值。
+    """
+    def _gen(state_words):
+        return [tpl.format(st.format(cls_name))
+                for st in state_words for tpl in TEMPLATES]
 
-def build_class_prompts(cls_noun: str) -> dict[str, list[str]]:
-    """返回 {'normal': [...], 'abnormal': [...]}。"""
-    return {
-        "normal": _noun_phrases(cls_noun, NORMAL_STATE_WORDS),
-        "abnormal": _noun_phrases(cls_noun, ABNORMAL_STATE_WORDS),
-    }
+    return {"normal": _gen(NORMAL_STATE_WORDS),
+            "abnormal": _gen(ABNORMAL_STATE_WORDS)}
 
 
 if __name__ == "__main__":
-    import json
-
-    from mvtec import class_prompt_noun
-
-    for cls in ["bottle", "carpet", "pill"]:
-        noun = class_prompt_noun(cls)
-        p = build_class_prompts(noun)
-        print(f"[{cls}] noun={noun!r} normal={len(p['normal'])} "
-              f"abnormal={len(p['abnormal'])}")
-        print("  example:", json.dumps(p["abnormal"][0], ensure_ascii=False))
+    for cls in ["bottle", "carpet", "wood"]:
+        p = build_class_prompts(cls)
+        print(f"[{cls}] normal={len(p['normal'])} abnormal={len(p['abnormal'])}")
+        print("  正常例:", p["normal"][0])
+        print("  异常例:", p["abnormal"][0])

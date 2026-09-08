@@ -11,27 +11,6 @@ MVTEC_CLASSES = [
     "zipper",
 ]
 
-# 纹理类:文本 prompt 用 "texture",物体类用 "object"(影响 CLIP 对齐质量)
-TEXTURE_CLASSES = {"carpet", "grid", "leather", "tile", "wood"}
-
-
-def is_texture(cls: str) -> bool:
-    return cls in TEXTURE_CLASSES
-
-
-def class_prompt_noun(cls: str) -> str:
-    """MVTec 类别名 → 文本里的名词短语。"""
-    if is_texture(cls):
-        return f"{cls} texture"
-    if cls[0] in "aeiou":
-        return f"an {cls}"
-    return f"a {cls}"
-
-
-def load_image(path: str | Path) -> Image.Image:
-    return Image.open(path).convert("RGB")
-
-
 def iter_test_images(root: str | Path, cls: str):
     """遍历某一类的 test 图,产出 (name, rel_type, img_path, mask_path|None)。
 

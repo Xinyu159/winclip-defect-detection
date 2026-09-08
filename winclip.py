@@ -1,13 +1,23 @@
-"""WinCLIP 核心:CLIP patch 级特征 + 正常/异常文本双分支打分。
+"""WinCLIP(CVPR'23)完整复现核心:zero-/few-shot 异常分类与像素分割。
 
-zero-shot:只用类别名文本,无任何训练/微调;
-few-shot: 用 k 张正常样本的 patch 特征作参考,替换 normal 文本分支。
+设计对齐论文与官方复现(mala-lab),骨干为**全冻结**的 CLIP ViT-B-16-plus-240
+(LAION-400M,240px → 15×15 patch),零训练、零反向传播:
 
-与论文一致的关键机制:
-  1. 图像被切成 patch 窗口,ViT 的 patch token 保留空间位置(不是只有 CLS);
-  2. 文本侧 = 状态词(正常/异常)× 句式模板 → 两类语义原型;
-  3. 每 patch 对"异常原型最大相似度 - 正常原型相似度"→ 缺陷分数;
-  4. image 级分数 = patch 分数图经 3×3 窗口投票后 top-k 池化(论文的窗口聚合思想)。
+  1. 手工前向(已验证与 model.encode_image 输出余弦相似度 = 1.0):
+     conv1 patch 化 → 拼 [CLS] + 位置编码 → ln_pre → 12 层 transformer →
+     ln_post → proj(896→640 共享空间,与文本同空间);
+  2. 文本侧 CPE(prompts.py):7 正常 + 4 异常状态词 × 22 句式模板,
+     逐标签平均成 normal/abnormal 原型各 1 个向量;
+  3. 多尺度窗口:2×2(32px,196 窗)/ 3×3(48px,169 窗)patch 子序列
+     [CLS+窗口] 打包成 batch 一次过整塔(权重共享,窗口级 CLS 描述局部);
+  4. anomaly map = 窗口"异常文本"概率按覆盖关系做调和平均 → 15×15,
+     再与整图 CLS 异常概率三路调和(3/(1/m48 + 1/m32 + 1/z0));
+  5. few-shot(全冻结):k 张正常参考图的三尺度特征作 gallery,查询窗口/
+     patch 特征最近邻 0.5·(1−max cos) 得视觉异常;三尺度平均 → few map,
+     最终 map = zero map + few map;image 分 = (文本概率 + max(few map))/2。
+
+消融记录(详情见 memory):温度{100,14.3,1}、窗口分支数、896 无 proj 空间、
+窗口内 ln_pre 等变体均无增益,最终采用上述官方默认配置。
 """
 from __future__ import annotations
 
@@ -16,147 +26,209 @@ import torch.nn.functional as F
 
 import open_clip
 
-_ARCH_TEMPLATE = "ViT-B-32"  # patch 32px,224 输入 → 7×7=49 patch
-
-
-def _detect_patch_backend(visual) -> tuple:
-    """定位产出 patch token 的前向路径,兼容 open_clip 不同版本结构。
-
-    返回 (forward_fn, name):
-      tims 版:  visual.trunk.blocks[-1](hook)→ 若存在 trunk.norm 则过 norm
-      open_clip 官方版: visual.transformer.resblocks[-1](hook)→ ln_post
-    """
-    if hasattr(visual, "trunk"):  # open_clip >= 2.2x 部分版本用 timm trunk
-        trunk = visual.trunk
-        assert hasattr(trunk, "blocks"), f"trunk 无 blocks:{type(trunk)}"
-        post_norm = getattr(trunk, "norm", None)
-        return trunk.blocks[-1], post_norm, "timm-trunk"
-    if hasattr(visual, "transformer") and hasattr(visual.transformer, "resblocks"):
-        blocks = visual.transformer.resblocks
-        post_norm = getattr(visual, "ln_post", None)
-        return blocks[-1], post_norm, "openclip-resblocks"
-    raise RuntimeError(f"无法识别 open_clip 视觉塔结构:{type(visual)}")
-
 
 class WinCLIP:
-    def __init__(self, model_name: str = "ViT-B-32", pretrained: str = "openai",
-                 device: str = "cuda", image_size: int = 224,
-                 mode: str = "diff", vote_win: int = 3, topk_pct: float = 0.05):
+    def __init__(self, model_name: str = "ViT-B-16-plus-240",
+                 weights: str = "", device: str = "cuda"):
+        """weights: 本地 ckpt 路径(plus-240 权重),或 open_clip 预训练标签。"""
         self.device = device
-        self.image_size = image_size
-        self.mode = mode          # diff | softmax(消融用)
-        self.vote_win = vote_win  # image 分数的窗口投票尺寸(论文 window 聚合)
-        self.topk_pct = topk_pct  # image 分数 top-k 池化比例
 
+        # force_quick_gelu:仅 openai 原版权重需要;LAION 权重与默认 GELU 一致
         model, preprocess, _ = open_clip.create_model_and_transforms(
-            model_name, pretrained=pretrained, device=device)
+            model_name, pretrained=weights or None, device=device,
+            force_quick_gelu=(weights == "openai"))
         self.model = model.eval()
         self.tokenizer = open_clip.get_tokenizer(model_name)
         self.preprocess = preprocess
 
-        # 温度:CLIP 文本-图像 logit 尺度(softmax 模式用)
         with torch.no_grad():
-            self.temp = model.logit_scale.exp().float().item()
+            self.temp = model.logit_scale.exp().float()  # CLIP 温度 ≈100
 
-        # --- patch 特征 hook ---
-        block, post_norm, backend_name = _detect_patch_backend(model.visual)
-        self._post_norm = post_norm
-        self._backend_name = backend_name
-        self._hook_out = None
+        v = model.visual
+        # 仅支持 open_clip 标准 ViT 塔(resblocks 结构),B-16-plus-240 即此结构
+        assert not hasattr(v, "trunk"), "timm-trunk 结构请换 open_clip 3.x"
+        self.v = v
+        self.blocks = v.transformer.resblocks
+        self.grid = tuple(v.grid_size) if hasattr(v, "grid_size") else \
+            (v.image_size[0] // v.patch_size[0], v.image_size[1] // v.patch_size[1])
+        self.patch_dim = v.conv1.out_channels  # 896
+        self.image_size = 240
 
-        def _hook(module, args, out):
-            self._hook_out = out.detach()
-
-        self._handle = block.register_forward_hook(_hook)
-        self._patch_side = None  # 探测后缓存
+        # 每类文本原型(整图 CLS 打分与窗口打分共用)
+        self.normal_proto = None   # (1, 640) l2
+        self.abnormal_proto = None
+        self.gallery = None        # few-shot 参考特征 {large/mid/patch: (N, 640)}
 
     # ------------------------------------------------------------------
-    def encode_patches(self, img_tensor: torch.Tensor) -> torch.Tensor:
-        """(B,3,H,W) → (B,N,D) patch tokens(不含 CLS,行 l2 归一)。"""
-        self._hook_out = None
-        self.model.encode_image(img_tensor)  # 前向,触发 hook
-        h = self._hook_out
-        if h is None:
-            raise RuntimeError("patch hook 未触发,结构探测失败")
-        if self._post_norm is not None:
-            h = self._post_norm(h)
-        h = h[:, 1:]  # 去 CLS
-        return F.normalize(h.float(), dim=-1)
-
-    def encode_texts(self, texts: list[str]) -> torch.Tensor:
-        tok = self.tokenizer(texts).to(self.device)
-        with torch.no_grad():
-            feats = self.model.encode_text(tok)
-        return F.normalize(feats.float(), dim=-1)
-
+    # 冻结前向工具(全部 torch.no_grad 下调用)
     # ------------------------------------------------------------------
-    def set_class(self, cls_noun: str) -> None:
-        """编码当前类的正常/异常文本原型。
-
-        normal:   各状态词(模板已平均)→ (k, D)
-        abnormal: 各状态词(模板已平均)→ (m, D)
-        """
-        from prompts import TEMPLATES, build_class_prompts
-        p = build_class_prompts(cls_noun)
-        n_tpl = len(TEMPLATES)
-        with torch.no_grad():
-            self.normal_states = self._state_vectors(p["normal"], n_tpl)
-            self.abnormal_states = self._state_vectors(p["abnormal"], n_tpl)
-        self._prompt_info = {"class": cls_noun,
-                             "n_prompts": len(p["normal"]),
-                             "a_prompts": len(p["abnormal"])}
-        self.ref_feats = None  # few-shot 注入时赋值
-
-    def _state_vectors(self, prompt_list: list[str], n_templates: int) -> torch.Tensor:
-        """prompt 按 (状态词 × 模板) 排布 → 每状态词模板平均得一个向量。"""
-        feats = self.encode_texts(prompt_list)             # (S*T, D)
-        return feats.reshape(-1, n_templates, feats.shape[-1]).mean(dim=1)
-
-    # ------------------------------------------------------------------
-    def _similarities(self, patch_feats: torch.Tensor, states: torch.Tensor,
-                      reduce: str = "mean") -> torch.Tensor:
-        """patch(N,D) × states(S,D) → (N,) 相似度(状态词内模板已平均)。
-
-        注:为保持 zero-shot 与 few-shot 计算一致,相似度不用温度缩放,
-        直接余弦;ROC 排序对单调变换不变。softmax 模式才引入温度。
-        """
-        sim = patch_feats @ states.t()  # (N, S)
-        if reduce == "mean":
-            return sim.mean(dim=1)
-        if reduce == "max":
-            return sim.max(dim=1).values
-        raise ValueError(reduce)
+    @torch.no_grad()
+    def _patch_feats(self, img: torch.Tensor) -> torch.Tensor:
+        """(B,3,240,240) → (B, 226, 896) conv+[CLS]+位置编码+ln_pre 的序列。"""
+        v = self.v
+        x = v.conv1(img).reshape(img.shape[0], self.patch_dim, -1).permute(0, 2, 1)
+        cls = v.class_embedding.view(1, 1, -1).expand(x.shape[0], -1, -1)
+        x = torch.cat([cls, x], dim=1)                      # (B, 226, 896)
+        x = x + v.positional_embedding
+        return v.ln_pre(x)
 
     @torch.no_grad()
-    def anomaly_maps(self, img_tensor: torch.Tensor) -> tuple:
-        """(1,3,H,W) → (patch_map(N,), image_score) 。few-shot 时 normal
-        分支用参考 patch 特征(nearest-neighbor 相似度)。"""
-        patch = self.encode_patches(img_tensor)  # (N, D) l2
-        if self.ref_feats is None:
-            sim_n = self._similarities(patch, self.normal_states, "mean")
-        else:  # few-shot:与 k-shot 正常参考 patch 集的最大相似度
-            sim_n = (patch @ self.ref_feats.t()).max(dim=1).values
-        sim_a = self._similarities(patch, self.abnormal_states, "max")
+    def _run_blocks(self, x: torch.Tensor) -> torch.Tensor:
+        """token 序列过 12 层 transformer(任意子序列/窗口均可复用)。"""
+        for blk in self.blocks:
+            x = blk(x)
+        return x
 
-        if self.mode == "diff":
-            p_map = sim_a - sim_n                      # 线性差分,可负
-        elif self.mode == "softmax":
-            # 状态级 softmax:logits 已 l2 余弦 + 温度 → P(异常状态) 之和
-            logits = torch.cat([sim_n.unsqueeze(1), sim_a.unsqueeze(1)], dim=1) * self.temp
-            p_map = torch.softmax(logits, dim=1)[:, 1]
+    @torch.no_grad()
+    def _to_shared(self, cls_tokens: torch.Tensor) -> torch.Tensor:
+        """token → ln_post → proj → 640 共享空间(与文本同空间),l2。"""
+        h = self.v.ln_post(cls_tokens)
+        return F.normalize(h @ self.v.proj, dim=-1)
+
+    @torch.no_grad()
+    def _window_indices(self, k: int) -> torch.Tensor:
+        """15×15 网格上 kernel=k×k,stride=1 滑窗 → 每窗口的 patch token 索引。
+
+        返回 (n_win, k*k) 的 token 序号(1..225,不含 CLS 的 0)。
+        """
+        board = torch.arange(1, self.grid[0] * self.grid[1] + 1,
+                             dtype=torch.float32, device=self.device)
+        board = board.view(1, 1, self.grid[0], self.grid[1])
+        masks = F.unfold(board, kernel_size=k, stride=1).squeeze(0)  # (k², n_win)
+        return masks.t().long()
+
+    @torch.no_grad()
+    def _win_feats(self, base: torch.Tensor, win_idx: torch.Tensor) -> torch.Tensor:
+        """窗口子序列 [CLS+窗口 patches] 批量过塔 → 窗口级 CLS 特征 (n_win, 640)。
+
+        base: 已 ln_pre 的整图序列 (1, 226, 896);ln_post → proj → 640 l2。
+        """
+        seq = torch.cat([torch.zeros(win_idx.shape[0], 1, dtype=torch.long,
+                                     device=self.device), win_idx], dim=1)
+        w = self._run_blocks(base[0][seq])               # (n_win, k²+1, 896)
+        ln = F.normalize(self.v.ln_post(w[:, 0]), dim=-1)     # (n_win, 896)
+        return F.normalize(ln @ self.v.proj, dim=-1)
+
+    # ------------------------------------------------------------------
+    # 文本原型
+    # ------------------------------------------------------------------
+    @torch.no_grad()
+    def set_class(self, cls_name: str) -> None:
+        """编码当前类的 normal/abnormal 原型(各 1 个向量,模板平均)。"""
+        from prompts import build_class_prompts
+        p = build_class_prompts(cls_name)
+
+        def _proto(texts):
+            tok = self.tokenizer(texts).to(self.device)
+            feats = self.model.encode_text(tok)
+            feats = F.normalize(feats.float(), dim=-1)
+            return F.normalize(feats.mean(dim=0, keepdim=True), dim=-1)
+
+        self.normal_proto = _proto(p["normal"])
+        self.abnormal_proto = _proto(p["abnormal"])
+        self.cls_name = cls_name
+
+    # ------------------------------------------------------------------
+    # few-shot 参考库(全权重冻结,仅缓存 k 张正常图的特征)
+    # ------------------------------------------------------------------
+    @torch.no_grad()
+    def set_gallery(self, imgs: torch.Tensor) -> None:
+        """预计算 k 张参考正常图的三尺度特征到 640 共享空间(已 l2)。
+
+        imgs: (k, 3, 240, 240) 已归一化张量。large/mid = 3×3/2×2 窗口 CLS,
+        patch = 整图 12 层后逐 patch。与查询同空间,余弦近邻即可检索。
+        """
+        g = {"large": [], "mid": [], "patch": []}
+        for i in range(imgs.shape[0]):
+            feats = self._patch_feats(imgs[i:i + 1])
+            z = self._run_blocks(feats)
+            g["patch"].append(self._to_shared(z[0, 1:]))        # (225, 640)
+            for name, k in (("large", 3), ("mid", 2)):
+                win_idx = self._window_indices(k)
+                g[name].append(self._win_feats(feats, win_idx))  # (n_win, 640)
+        self.gallery = {name: torch.cat(v, dim=0) for name, v in g.items()}
+
+    @staticmethod
+    def _few_token_score(cur: torch.Tensor, mem: torch.Tensor) -> torch.Tensor:
+        """(N,640) 查询 × (M,640) 参考 → 每 token 最近邻异常分 0.5·(1−max cos)。"""
+        sim = cur @ mem.t()                        # (N, M)
+        return 0.5 * (1.0 - sim.max(dim=-1)[0])
+
+    # ------------------------------------------------------------------
+    # 打分
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _prob(feats: torch.Tensor, pos: torch.Tensor, neg: torch.Tensor,
+              temp: float) -> torch.Tensor:
+        """(n, 640) 特征 × [pos,neg] → 温度缩放 softmax → 异常类概率 (n,)。"""
+        logits = torch.cat([feats @ pos.t(), feats @ neg.t()], dim=1) * temp
+        return torch.softmax(logits, dim=1)[:, 1]
+
+    @staticmethod
+    def _harmonic_to_patch(win_prob: torch.Tensor, win_idx: torch.Tensor,
+                           grid_hw: int) -> torch.Tensor:
+        """窗口级分数 → 每 patch 的调和平均(覆盖该 patch 的窗口)。
+
+        A[p, w] = 窗口 w 是否覆盖 patch p;patch 分数 = Σ_w A / Σ_w (A / s_w)。
+        """
+        n_patch = grid_hw * grid_hw
+        A = torch.zeros(win_idx.shape[0], n_patch,
+                        dtype=win_prob.dtype, device=win_prob.device)
+        A.scatter_(1, win_idx - 1, 1.0)       # win_idx 是 1..225 token 号
+        cnt = A.sum(0)                            # 每 patch 被多少窗口覆盖
+        inv = A.t() @ (1.0 / win_prob)            # Σ_w 1/s_w(仅覆盖窗口)
+        return torch.nan_to_num(cnt / inv)        # (n_patch,)
+
+    @torch.no_grad()
+    def anomaly_maps(self, img_tensor: torch.Tensor,
+                     use_few: bool = False) -> tuple:
+        """(1,3,H,W) → (map (1,15,15), image_score)。
+
+        zero-shot:map = 三路调和 48px/32px 窗口异常概率 + 整图 CLS 异常概率
+        (逐 patch 广播);image 分 = CLS 异常概率。
+        few-shot:窗口/patch 特征对 gallery 最近邻 0.5·(1−cos),窗口尺度调和
+        到 patch,与 patch 尺度平均 → few map;map += few map,
+        image = (文本概率 + max(few map))/2。
+        """
+        assert self.normal_proto is not None, "先 set_class()"
+        if use_few:
+            assert self.gallery is not None, "先 set_gallery()"
+        pos, neg, temp = self.normal_proto, self.abnormal_proto, self.temp
+        H, W = self.grid
+
+        feats = self._patch_feats(img_tensor)          # (1, 226, 896)
+        z = self._run_blocks(feats)                    # 整图 12 层
+        cls_shared = self._to_shared(z[:, 0])          # (1, 640)
+        cls_prob = self._prob(cls_shared, pos, neg, temp)  # (1,)
+
+        # 多尺度窗口:3×3(48px,169 窗)与 2×2(32px,196 窗)批量过塔
+        win_feats, maps = {}, []
+        for name, k in (("large", 3), ("mid", 2)):
+            win_idx = self._window_indices(k)          # (n_win, k*k)
+            ws = self._win_feats(feats, win_idx)       # (n_win, 640)
+            win_feats[name] = ws
+            win_prob = self._prob(ws, pos, neg, temp)
+            maps.append(self._harmonic_to_patch(win_prob, win_idx, H).view(H, W))
+
+        # 三路调和(窗口两尺度 + 整图 CLS);CLS 项逐 patch 广播
+        m48, m32 = maps
+        m_all = 3.0 / (1.0 / m48 + 1.0 / m32 + 1.0 / cls_prob.item())
+        m_all = torch.nan_to_num(m_all)
+
+        if use_few:
+            g = self.gallery
+            patch_shared = self._to_shared(z[0, 1:])   # (225, 640)
+            # 三尺度最近邻异常图:窗口尺度调和到 patch,补丁尺度直接 reshape
+            few_maps = []
+            for name, k in (("large", 3), ("mid", 2)):
+                win_idx = self._window_indices(k)
+                tok = self._few_token_score(win_feats[name], g[name])
+                few_maps.append(self._harmonic_to_patch(tok, win_idx, H).view(H, W))
+            patch_score = self._few_token_score(patch_shared, g["patch"]).view(H, W)
+            few_map = (few_maps[0] + few_maps[1] + patch_score) / 3.0
+            m_all = torch.nan_to_num(m_all + few_map)
+            img_score = (cls_prob.item() + few_map.max().item()) / 2.0
         else:
-            raise ValueError(self.mode)
+            img_score = cls_prob.item()
 
-        # image 级:窗口投票(3×3 均值,边界保持)+ top-k 池化
-        side = int(patch.shape[0] ** 0.5)
-        grid = p_map.view(1, 1, side, side)
-        if self.vote_win > 1:
-            grid = F.avg_pool2d(grid, self.vote_win, stride=1,
-                                padding=self.vote_win // 2, count_include_pad=False)
-        flat = grid.flatten()
-        k = max(1, int(flat.numel() * self.topk_pct))
-        image_score = flat.topk(k).values.mean().item()
-        return p_map, image_score
-
-    def close(self):
-        self._handle.remove()
+        return m_all.unsqueeze(0).unsqueeze(0), img_score
