@@ -42,7 +42,8 @@ class Patcher(torch.nn.Module):
         self.ln_pre = v.ln_pre
 
     def forward(self, img: torch.Tensor) -> torch.Tensor:
-        x = self.conv1(img).reshape(img.shape[0], -1, 896).permute(0, 2, 1)
+        # conv1:(B,896,15,15) → 按 patch_dim 整形为 (B,225,896),即 (B, 通道, 空间) 转置
+        x = self.conv1(img).reshape(img.shape[0], 896, -1).permute(0, 2, 1)
         cls = self.class_embedding.view(1, 1, -1).expand(x.shape[0], -1, -1)
         x = torch.cat([cls, x], dim=1) + self.positional_embedding
         return self.ln_pre(x)
@@ -59,7 +60,9 @@ class TokTower(torch.nn.Module):
         self.proj = v.proj
 
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
-        h = self.blocks(tokens)
+        h = tokens
+        for block in self.blocks:      # resblocks 为 ModuleList,逐块调用以支持导出
+            h = block(h)
         h = self.ln_post(h)
         return F.normalize(h @ self.proj, dim=-1)
 
