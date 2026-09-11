@@ -59,7 +59,16 @@ def parse_args():
                     help="ckpt 文件路径或 hub 预训练标签;勿留空(空=随机初始化)")
     ap.add_argument("--device",
                     default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--pre", choices=["val", "train"], default="val",
+                    help="预处理口径。val(默认,修正后)= Resize240+CenterCrop,"
+                         "确定性,与部署侧 EngineBase.preprocess_rgb 逐位相同;"
+                         "train = winclip.py 历史上误用的 preprocess_train"
+                         "(RandomResizedCrop 随机裁剪),仅作对照复现旧数字")
     ap.add_argument("--tag", default="", help="实验备注,写入 log")
+    ap.add_argument("--prompt-map", default="",
+                    help="JSON 文件:{目录名: CPE 物体名}。用于目录名≠物体名的数据集"
+                         "(如 4i 的 Steel_Sc→steel surface)。缺省时退化为 "
+                         "cls.replace('_',' '),与原行为逐位一致。")
     return ap.parse_args()
 
 
@@ -85,10 +94,16 @@ def make_gallery(root: Path, cls: str, shot: int, seed: int,
 @torch.no_grad()
 def main():
     args = parse_args()
+    # ★ 全局播种。--pre train 用的 RandomResizedCrop 走 torch 全局 RNG,
+    #   本行缺失时每次运行裁出的作物都不同 —— 这正是旧结果不可复现的根因。
+    #   播种后:同一 (seed, 类序, 图序) 下裁剪序列固定,跨进程可复现。
+    torch.manual_seed(args.seed)
     root = Path(args.data_root)
     classes = MVTEC_CLASSES if args.classes == "all" else \
         [c.strip() for c in args.classes.split(",")]
     shots_list = [int(s) for s in args.shots.split(",")]
+    # 缺省 {} → 下面 .get(cls, cls.replace("_"," ")) 与旧行为完全一致
+    prompt_map = json.loads(Path(args.prompt_map).read_text()) if args.prompt_map else {}
 
     exp = {
         "script": "evaluate.py", "time": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -99,15 +114,20 @@ def main():
     log_path = log_dir / f"exp_{time.strftime('%Y%m%d_%H%M%S')}.json"
 
     model = WinCLIP("ViT-B-16-plus-240", args.weights, args.device)
+    if args.pre == "train":
+        model.preprocess = model.preprocess_train
     print(f"[model] ViT-B-16-plus-240 + weights={args.weights} on {args.device} | "
           f"CLIP 温度 = {model.temp.item():.2f}", flush=True)
+    print(f"[pre] 口径 = preprocess_{args.pre} | torch.manual_seed({args.seed})",
+          flush=True)
 
     per_shot = {}
     for shot in shots_list:
         per_class = {}
         for cls in classes:
             t0 = time.time()
-            model.set_class(cls.replace("_", " "))   # 官方直接用裸类名
+            # 官方直接用裸类名;--prompt-map 缺省时等价于 cls.replace("_", " ")
+            model.set_class(prompt_map.get(cls, cls.replace("_", " ")))
             if shot > 0:
                 make_gallery(root, cls, shot, args.seed, model)
 

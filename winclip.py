@@ -34,12 +34,25 @@ class WinCLIP:
         self.device = device
 
         # force_quick_gelu:仅 openai 原版权重需要;LAION 权重与默认 GELU 一致
-        model, preprocess, _ = open_clip.create_model_and_transforms(
-            model_name, pretrained=weights or None, device=device,
-            force_quick_gelu=(weights == "openai"))
+        #
+        # ★ 返回值顺序是 (model, preprocess_train, preprocess_val)。
+        #   本项目此前把**第二个**(即 preprocess_train)赋给了 self.preprocess,
+        #   而它是 RandomResizedCrop(scale=(0.9,1.0), ratio=(0.75,1.333)) —— 于是
+        #   评估期每张图都被随机裁剪,三重后果:
+        #     ① 同一张图每次前向都不同 → 结果不可复现(evaluate.py 也没播全局种子);
+        #     ② 裁剪会切掉边缘 → 边缘小缺陷可能被裁没;
+        #     ③ 与部署侧 EngineBase.preprocess_rgb(Resize240+CenterCrop 的镜像)
+        #        不是同一预处理 → 研究数字与部署数字本就不可比。
+        #   实测:同一张图连跑三次 max|Δ| = 1.67;preprocess_val 连跑两次逐位相同,
+        #   且与 EngineBase.preprocess_rgb 逐位相同(max|Δ| = 0)。
+        model, preprocess_train, preprocess_val = \
+            open_clip.create_model_and_transforms(
+                model_name, pretrained=weights or None, device=device,
+                force_quick_gelu=(weights == "openai"))
         self.model = model.eval()
         self.tokenizer = open_clip.get_tokenizer(model_name)
-        self.preprocess = preprocess
+        self.preprocess = preprocess_val           # 评估用确定性口径(默认)
+        self.preprocess_train = preprocess_train   # 仅供 --pre train 对照
 
         with torch.no_grad():
             self.temp = model.logit_scale.exp().float()  # CLIP 温度 ≈100
