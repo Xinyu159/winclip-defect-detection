@@ -1,0 +1,107 @@
+位置对应性置换检验 | 只用良品 · 零推理 · 零 GT
+  良品缓存 /tmp/feat_cache_good   seed=42   距离 = 0.5·(1−cos)
+  d_id=到同位置  d_glob=到全库(B 线用的量)
+  align 两个零假设:  fixed=全库共用一个固定错位  per_img=逐图独立置换(严,判据以此为准)
+  ≈0 ⇒ 该类位置无语义,A 线不成立
+
+bottle       库  10 / 查询  10  (良品池 20)
+    patch       d_id=0.0490 d_glob=0.0467 | align=+0.813(fixed) +0.723(per_img) glob=+0.047 胜率=1.00/0.99
+    large(3x3)  d_id=0.0106 d_glob=0.0104 | align=+0.842(fixed) +0.705(per_img) glob=+0.024 胜率=0.99/1.00
+    mid(2x2)    d_id=0.0062 d_glob=0.0060 | align=+0.834(fixed) +0.704(per_img) glob=+0.031 胜率=0.99/0.99
+
+cable        库  29 / 查询  29  (良品池 58)
+    patch       d_id=0.1167 d_glob=0.1033 | align=+0.566(fixed) +0.401(per_img) glob=+0.115 胜率=0.98/0.96
+    large(3x3)  d_id=0.0301 d_glob=0.0279 | align=+0.606(fixed) +0.364(per_img) glob=+0.074 胜率=0.99/0.97
+    mid(2x2)    d_id=0.0196 d_glob=0.0176 | align=+0.597(fixed) +0.389(per_img) glob=+0.102 胜率=0.98/0.97
+
+capsule      库  11 / 查询  11  (良品池 23)
+    patch       d_id=0.0593 d_glob=0.0469 | align=+0.777(fixed) +0.670(per_img) glob=+0.208 胜率=0.98/0.96
+    large(3x3)  d_id=0.0088 d_glob=0.0080 | align=+0.874(fixed) +0.755(per_img) glob=+0.091 胜率=0.98/0.98
+    mid(2x2)    d_id=0.0040 d_glob=0.0035 | align=+0.849(fixed) +0.743(per_img) glob=+0.115 胜率=0.97/0.98
+
+carpet       库  14 / 查询  14  (良品池 28)
+    patch       d_id=0.0942 d_glob=0.0712 | align=+0.384(fixed) +0.227(per_img) glob=+0.244 胜率=0.86/0.81
+    large(3x3)  d_id=0.0087 d_glob=0.0068 | align=+0.572(fixed) +0.320(per_img) glob=+0.221 胜率=0.92/0.89
+    mid(2x2)    d_id=0.0098 d_glob=0.0076 | align=+0.416(fixed) +0.285(per_img) glob=+0.222 胜率=0.91/0.89
+
+grid         库  10 / 查询  10  (良品池 21)
+    patch       d_id=0.1547 d_glob=0.1210 | align=+0.259(fixed) +0.158(per_img) glob=+0.218 胜率=0.81/0.78
+    large(3x3)  d_id=0.0273 d_glob=0.0190 | align=+0.155(fixed) +0.115(per_img) glob=+0.303 胜率=0.71/0.68
+    mid(2x2)    d_id=0.0228 d_glob=0.0152 | align=+0.155(fixed) +0.103(per_img) glob=+0.333 胜率=0.70/0.65
+
+hazelnut     库  20 / 查询  20  (良品池 40)
+    patch       d_id=0.1251 d_glob=0.1035 | align=+0.509(fixed) +0.318(per_img) glob=+0.173 胜率=0.95/0.93
+    large(3x3)  d_id=0.0207 d_glob=0.0163 | align=+0.624(fixed) +0.364(per_img) glob=+0.212 胜率=0.95/0.94
+    mid(2x2)    d_id=0.0106 d_glob=0.0081 | align=+0.601(fixed) +0.329(per_img) glob=+0.237 胜率=0.96/0.94
+
+leather      库  16 / 查询  16  (良品池 32)
+    patch       d_id=0.0666 d_glob=0.0520 | align=+0.487(fixed) +0.333(per_img) glob=+0.219 胜率=0.90/0.87
+    large(3x3)  d_id=0.0079 d_glob=0.0058 | align=+0.560(fixed) +0.337(per_img) glob=+0.263 胜率=0.90/0.89
+    mid(2x2)    d_id=0.0092 d_glob=0.0064 | align=+0.457(fixed) +0.275(per_img) glob=+0.305 胜率=0.88/0.84
+
+metal_nut    库  11 / 查询  11  (良品池 22)
+    patch       d_id=0.1132 d_glob=0.0967 | align=+0.602(fixed) +0.478(per_img) glob=+0.145 胜率=0.97/0.95
+    large(3x3)  d_id=0.0230 d_glob=0.0200 | align=+0.658(fixed) +0.476(per_img) glob=+0.132 胜率=0.96/0.96
+    mid(2x2)    d_id=0.0159 d_glob=0.0133 | align=+0.624(fixed) +0.427(per_img) glob=+0.168 胜率=0.96/0.94
+
+pill         库  13 / 查询  13  (良品池 26)
+    patch       d_id=0.0841 d_glob=0.0701 | align=+0.666(fixed) +0.502(per_img) glob=+0.166 胜率=0.97/0.95
+    large(3x3)  d_id=0.0148 d_glob=0.0136 | align=+0.781(fixed) +0.555(per_img) glob=+0.083 胜率=0.98/0.98
+    mid(2x2)    d_id=0.0068 d_glob=0.0059 | align=+0.766(fixed) +0.557(per_img) glob=+0.127 胜率=0.98/0.97
+
+screw        库  20 / 查询  20  (良品池 41)
+    patch       d_id=0.1017 d_glob=0.0700 | align=+0.491(fixed) +0.390(per_img) glob=+0.312 胜率=0.88/0.85
+    large(3x3)  d_id=0.0158 d_glob=0.0117 | align=+0.547(fixed) +0.394(per_img) glob=+0.263 胜率=0.91/0.89
+    mid(2x2)    d_id=0.0080 d_glob=0.0058 | align=+0.473(fixed) +0.349(per_img) glob=+0.273 胜率=0.91/0.90
+
+tile         库  16 / 查询  16  (良品池 33)
+    patch       d_id=0.1363 d_glob=0.1057 | align=+0.260(fixed) +0.161(per_img) glob=+0.225 胜率=0.82/0.78
+    large(3x3)  d_id=0.0128 d_glob=0.0095 | align=+0.362(fixed) +0.194(per_img) glob=+0.257 胜率=0.84/0.81
+    mid(2x2)    d_id=0.0129 d_glob=0.0094 | align=+0.273(fixed) +0.173(per_img) glob=+0.266 胜率=0.85/0.81
+
+toothbrush   库   6 / 查询   6  (良品池 12)
+    patch       d_id=0.0976 d_glob=0.0824 | align=+0.673(fixed) +0.562(per_img) glob=+0.155 胜率=0.98/0.96
+    large(3x3)  d_id=0.0154 d_glob=0.0139 | align=+0.851(fixed) +0.638(per_img) glob=+0.101 胜率=0.99/0.98
+    mid(2x2)    d_id=0.0102 d_glob=0.0085 | align=+0.807(fixed) +0.632(per_img) glob=+0.162 胜率=0.98/0.98
+
+transistor   库  30 / 查询  30  (良品池 60)
+    patch       d_id=0.0841 d_glob=0.0757 | align=+0.693(fixed) +0.527(per_img) glob=+0.099 胜率=0.98/0.97
+    large(3x3)  d_id=0.0222 d_glob=0.0210 | align=+0.630(fixed) +0.446(per_img) glob=+0.051 胜率=0.99/0.98
+    mid(2x2)    d_id=0.0159 d_glob=0.0146 | align=+0.664(fixed) +0.500(per_img) glob=+0.083 胜率=0.98/0.97
+
+wood         库   9 / 查询   9  (良品池 19)
+    patch       d_id=0.1530 d_glob=0.1058 | align=+0.240(fixed) +0.172(per_img) glob=+0.309 胜率=0.78/0.77
+    large(3x3)  d_id=0.0180 d_glob=0.0118 | align=+0.377(fixed) +0.269(per_img) glob=+0.345 胜率=0.84/0.82
+    mid(2x2)    d_id=0.0123 d_glob=0.0081 | align=+0.316(fixed) +0.236(per_img) glob=+0.337 胜率=0.83/0.81
+
+zipper       库  16 / 查询  16  (良品池 32)
+    patch       d_id=0.0710 d_glob=0.0609 | align=+0.709(fixed) +0.494(per_img) glob=+0.142 胜率=0.98/0.97
+    large(3x3)  d_id=0.0075 d_glob=0.0063 | align=+0.817(fixed) +0.566(per_img) glob=+0.159 胜率=0.98/0.96
+    mid(2x2)    d_id=0.0048 d_glob=0.0039 | align=+0.775(fixed) +0.554(per_img) glob=+0.188 胜率=0.97/0.95
+
+====================================================================================
+判定表 align_gain  (fixed / per_img;判据取 per_img,按尺度)
+====================================================================================
+类                           patch           large(3x3)             mid(2x2)
+bottle        +0.813/+0.723  +0.842/+0.705  +0.834/+0.704
+cable         +0.566/+0.401  +0.606/+0.364  +0.597/+0.389
+capsule       +0.777/+0.670  +0.874/+0.755  +0.849/+0.743
+carpet        +0.384/+0.227  +0.572/+0.320  +0.416/+0.285
+grid          +0.259/+0.158  +0.155/+0.115  +0.155/+0.103
+hazelnut      +0.509/+0.318  +0.624/+0.364  +0.601/+0.329
+leather       +0.487/+0.333  +0.560/+0.337  +0.457/+0.275
+metal_nut     +0.602/+0.478  +0.658/+0.476  +0.624/+0.427
+pill          +0.666/+0.502  +0.781/+0.555  +0.766/+0.557
+screw         +0.491/+0.390  +0.547/+0.394  +0.473/+0.349
+tile          +0.260/+0.161  +0.362/+0.194  +0.273/+0.173
+toothbrush    +0.673/+0.562  +0.851/+0.638  +0.807/+0.632
+transistor    +0.693/+0.527  +0.630/+0.446  +0.664/+0.500
+wood          +0.240/+0.172  +0.377/+0.269  +0.316/+0.236
+zipper        +0.709/+0.494  +0.817/+0.566  +0.775/+0.554
+
+patch 尺度上位置先验成立的类(15): ['bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut', 'leather', 'metal_nut', 'pill', 'screw', 'tile', 'toothbrush', 'transistor', 'wood', 'zipper']
+位置先验不成立的类(0): 无
+两个零假设结论**不一致**的类(0): 无
+
+★ 本表**只**回答'A 线的前提在哪些类上成立',不下'哪条线更好'的结论。
+★ align_gain ≤ 0.05 的类:A 线不跑,报告里写明'位置无语义',不是'效果差'。
