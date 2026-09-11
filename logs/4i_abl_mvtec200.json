@@ -1,0 +1,35 @@
+{
+  "script": "evaluate.py",
+  "time": "2026-09-10 23:31:34",
+  "tag": "mvtec200_probe",
+  "data_root": "/root/autodl-tmp/mvtec200",
+  "classes": [
+    "tile",
+    "leather"
+  ],
+  "shots": "0",
+  "seed": 42,
+  "weights": "/root/autodl-tmp/winclip_official/vit_b_16_plus_240-laion400m_e31-8fb26589.pt",
+  "device": "cuda",
+  "prompt_map": "",
+  "results": {
+    "0": {
+      "per_class": {
+        "tile": {
+          "n_test": 117,
+          "n_defect": 84,
+          "img_auroc": 100.0,
+          "pix_auroc": 67.9
+        },
+        "leather": {
+          "n_test": 124,
+          "n_defect": 92,
+          "img_auroc": 100.0,
+          "pix_auroc": 96.6
+        }
+      },
+      "mean_img_auroc": 100.0,
+      "mean_pix_auroc": 82.2
+    }
+  }
+}

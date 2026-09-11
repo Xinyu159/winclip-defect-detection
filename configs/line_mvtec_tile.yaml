@@ -1,0 +1,69 @@
+# 工位配置:离线复跑 / 与 research 路径对拍(数据集形态)
+#
+# 用途:在 MVTec 这类"图像即工件"的数据上验证产线链路正确性。
+# 关键约束:cv.illum_norm=none + cascade 全量窗口 + 关早退
+#          → 结果必须与 runtime.OVPipeline 逐位一致(scripts/dev_line_parity.py)
+schema_version: 1
+
+station_id: "ST01-TILE"
+class_name: "tile"
+
+deploy_dir: "data/deploy"
+text_dir: "data/deploy/text_protos"
+device: "CPU"
+
+geometry:
+  mode: pre_cropped          # 数据集形态:图像已是工件,恒等定位
+  pixel_size_mm: 0.0         # 未标定 → 面积按像素解释
+
+roi:
+  # 数据集无工装夹具,核心区为全幅;边缘带留作现场示例
+  core: [0.0, 0.0, 1.0, 1.0]
+  edge: []
+  exclude: []
+  edge_band: 0.0
+  weight_core: 1.0
+  weight_edge: 0.45
+
+cv:
+  illum_norm: "none"         # 对拍必须 none;上线改 clahe,见 line_prod 配置
+  clahe_clip: 2.0
+  clahe_grid: 8
+  w_local_std: 1.0
+  w_grad: 0.6
+  w_range: 0.3
+  morph_kernel: 3
+  candidate_quantile: 0.85
+  min_candidates: 24
+  max_candidates: 120
+
+cascade:
+  use_cv_prescreen: true
+  early_exit_enable: false   # 对拍必须关;护栏来自良品标定后开启
+  early_exit_guard_path: ""
+  early_exit_margin: 1.0
+  win_score_cv_weight: 0.5
+  use_few: true
+
+takt:
+  takt_ms: 2000.0
+  safety_margin_ms: 120.0
+  ms_per_token: 0.0          # 0 = 用 cost_model_path 标定值
+  cost_model_path: "data/deploy/cost_model.json"
+  overrun_policy: "drop_windows"
+  min_windows: 8
+
+verdict:
+  map_threshold: 0.5
+  min_defect_area: 16.0
+  open_kernel: 1
+  close_kernel: 1
+  image_threshold: 0.5
+  review_band: 0.0
+
+io:
+  trigger: "sequence"
+  frame_source: "data/mvtec_anomaly_detection/tile/test"
+  reject_output: "log"
+  fps_limit: 0.0
+  output_dir: "logs/line"

@@ -1,0 +1,276 @@
+{
+  "hw": {
+    "hostname": "autodl-container-7vjvsmxv6l-8579d1fe",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+    "python": "3.10.21",
+    "gpu": "NVIDIA GeForce RTX 3080 Ti, 595.71.05, 12288 MiB",
+    "compute_cap": "8.6",
+    "ort": "1.23.2",
+    "ort_providers": [
+      "TensorrtExecutionProvider",
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ]
+  },
+  "n_warm": 10,
+  "n_iter": 50,
+  "classes": [
+    "tile",
+    "bottle"
+  ],
+  "configs": [
+    {
+      "name": "fp32cuda",
+      "deploy": "data/deploy_onnx_dyn",
+      "provider": "CUDAExecutionProvider",
+      "per_class": {
+        "tile": {
+          "e2e_full": {
+            "p50_ms": 198.84,
+            "p95_ms": 287.88,
+            "mean_ms": 196.03,
+            "min_ms": 98.9,
+            "n": 50
+          }
+        },
+        "bottle": {
+          "e2e_full": {
+            "p50_ms": 120.24,
+            "p95_ms": 294.54,
+            "mean_ms": 164.19,
+            "min_ms": 83.8,
+            "n": 50
+          }
+        }
+      },
+      "budget_ms": {
+        "tile": {
+          "4": {
+            "p50_ms": 11.05,
+            "p95_ms": 67.17,
+            "mean_ms": 22.23,
+            "min_ms": 5.7,
+            "n": 50
+          },
+          "8": {
+            "p50_ms": 12.18,
+            "p95_ms": 75.29,
+            "mean_ms": 27.72,
+            "min_ms": 5.88,
+            "n": 50
+          },
+          "16": {
+            "p50_ms": 12.0,
+            "p95_ms": 77.87,
+            "mean_ms": 27.93,
+            "min_ms": 8.63,
+            "n": 50
+          },
+          "32": {
+            "p50_ms": 13.25,
+            "p95_ms": 75.6,
+            "mean_ms": 28.25,
+            "min_ms": 10.03,
+            "n": 50
+          },
+          "64": {
+            "p50_ms": 19.42,
+            "p95_ms": 78.25,
+            "mean_ms": 38.39,
+            "min_ms": 16.4,
+            "n": 50
+          },
+          "128": {
+            "p50_ms": 79.1,
+            "p95_ms": 100.66,
+            "mean_ms": 68.81,
+            "min_ms": 28.18,
+            "n": 50
+          }
+        },
+        "bottle": {
+          "4": {
+            "p50_ms": 9.76,
+            "p95_ms": 69.86,
+            "mean_ms": 20.47,
+            "min_ms": 5.89,
+            "n": 50
+          },
+          "8": {
+            "p50_ms": 12.04,
+            "p95_ms": 71.06,
+            "mean_ms": 24.57,
+            "min_ms": 5.78,
+            "n": 50
+          },
+          "16": {
+            "p50_ms": 12.21,
+            "p95_ms": 71.17,
+            "mean_ms": 22.91,
+            "min_ms": 6.46,
+            "n": 50
+          },
+          "32": {
+            "p50_ms": 13.48,
+            "p95_ms": 74.0,
+            "mean_ms": 27.15,
+            "min_ms": 9.16,
+            "n": 50
+          },
+          "64": {
+            "p50_ms": 18.92,
+            "p95_ms": 82.97,
+            "mean_ms": 35.89,
+            "min_ms": 15.78,
+            "n": 50
+          },
+          "128": {
+            "p50_ms": 76.47,
+            "p95_ms": 101.17,
+            "mean_ms": 64.69,
+            "min_ms": 28.3,
+            "n": 50
+          }
+        }
+      },
+      "active_provider": "CUDAExecutionProvider",
+      "model_sizes_mb": {
+        "patcher": 3.6,
+        "full": 465.4,
+        "w5": 465.5,
+        "w10": 465.5
+      }
+    },
+    {
+      "name": "fp16cuda",
+      "deploy": "data/deploy_onnx_fp16",
+      "provider": "CUDAExecutionProvider",
+      "per_class": {
+        "tile": {
+          "e2e_full": {
+            "p50_ms": 115.7,
+            "p95_ms": 300.72,
+            "mean_ms": 149.47,
+            "min_ms": 33.49,
+            "n": 50
+          }
+        },
+        "bottle": {
+          "e2e_full": {
+            "p50_ms": 107.0,
+            "p95_ms": 289.64,
+            "mean_ms": 138.52,
+            "min_ms": 32.02,
+            "n": 50
+          }
+        }
+      },
+      "budget_ms": {
+        "tile": {
+          "4": {
+            "p50_ms": 8.22,
+            "p95_ms": 63.12,
+            "mean_ms": 15.33,
+            "min_ms": 5.4,
+            "n": 50
+          },
+          "8": {
+            "p50_ms": 11.28,
+            "p95_ms": 69.26,
+            "mean_ms": 24.32,
+            "min_ms": 7.59,
+            "n": 50
+          },
+          "16": {
+            "p50_ms": 10.33,
+            "p95_ms": 73.43,
+            "mean_ms": 25.82,
+            "min_ms": 6.42,
+            "n": 50
+          },
+          "32": {
+            "p50_ms": 11.33,
+            "p95_ms": 70.61,
+            "mean_ms": 22.92,
+            "min_ms": 7.87,
+            "n": 50
+          },
+          "64": {
+            "p50_ms": 14.42,
+            "p95_ms": 73.87,
+            "mean_ms": 28.16,
+            "min_ms": 10.73,
+            "n": 50
+          },
+          "128": {
+            "p50_ms": 22.62,
+            "p95_ms": 82.05,
+            "mean_ms": 38.88,
+            "min_ms": 17.19,
+            "n": 50
+          }
+        },
+        "bottle": {
+          "4": {
+            "p50_ms": 12.2,
+            "p95_ms": 74.92,
+            "mean_ms": 24.08,
+            "min_ms": 5.76,
+            "n": 50
+          },
+          "8": {
+            "p50_ms": 11.47,
+            "p95_ms": 73.48,
+            "mean_ms": 22.93,
+            "min_ms": 5.72,
+            "n": 50
+          },
+          "16": {
+            "p50_ms": 13.14,
+            "p95_ms": 73.35,
+            "mean_ms": 22.19,
+            "min_ms": 5.44,
+            "n": 50
+          },
+          "32": {
+            "p50_ms": 15.97,
+            "p95_ms": 75.76,
+            "mean_ms": 27.8,
+            "min_ms": 8.47,
+            "n": 50
+          },
+          "64": {
+            "p50_ms": 14.78,
+            "p95_ms": 71.82,
+            "mean_ms": 26.79,
+            "min_ms": 10.55,
+            "n": 50
+          },
+          "128": {
+            "p50_ms": 22.3,
+            "p95_ms": 83.94,
+            "mean_ms": 42.42,
+            "min_ms": 17.29,
+            "n": 50
+          }
+        }
+      },
+      "active_provider": "CUDAExecutionProvider",
+      "model_sizes_mb": {
+        "patcher": 1.8,
+        "full": 232.8,
+        "w5": 233.0,
+        "w10": 233.0
+      }
+    }
+  ],
+  "budgets": [
+    4,
+    8,
+    16,
+    32,
+    64,
+    128
+  ],
+  "ts": "2026-09-10 16:53:52"
+}

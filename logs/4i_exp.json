@@ -1,0 +1,261 @@
+{
+  "script": "evaluate.py",
+  "time": "2026-09-10 23:23:24",
+  "tag": "4i_12class",
+  "data_root": "/root/autodl-tmp/surface_defects_4i",
+  "classes": [
+    "Al_Rm",
+    "Al_Con",
+    "MT_Uneven",
+    "MT_Break",
+    "MT_Fray",
+    "Steel_Ld",
+    "Steel_Am",
+    "Steel_Pa",
+    "Steel_Sc",
+    "Rail",
+    "Leather",
+    "Tile"
+  ],
+  "shots": "0,1,4",
+  "seed": 42,
+  "weights": "/root/autodl-tmp/winclip_official/vit_b_16_plus_240-laion400m_e31-8fb26589.pt",
+  "device": "cuda",
+  "prompt_map": "data/4i_prompt_map.json",
+  "results": {
+    "0": {
+      "per_class": {
+        "Al_Rm": {
+          "n_test": 73,
+          "n_defect": 23,
+          "img_auroc": 80.2,
+          "pix_auroc": 60.3
+        },
+        "Al_Con": {
+          "n_test": 90,
+          "n_defect": 40,
+          "img_auroc": 97.4,
+          "pix_auroc": 78.9
+        },
+        "MT_Uneven": {
+          "n_test": 88,
+          "n_defect": 61,
+          "img_auroc": 68.6,
+          "pix_auroc": 38.0
+        },
+        "MT_Break": {
+          "n_test": 98,
+          "n_defect": 56,
+          "img_auroc": 83.0,
+          "pix_auroc": 68.9
+        },
+        "MT_Fray": {
+          "n_test": 41,
+          "n_defect": 26,
+          "img_auroc": 99.5,
+          "pix_auroc": 61.1
+        },
+        "Steel_Ld": {
+          "n_test": 98,
+          "n_defect": 48,
+          "img_auroc": 100.0,
+          "pix_auroc": 80.0
+        },
+        "Steel_Am": {
+          "n_test": 100,
+          "n_defect": 50,
+          "img_auroc": 100.0,
+          "pix_auroc": 69.3
+        },
+        "Steel_Pa": {
+          "n_test": 100,
+          "n_defect": 50,
+          "img_auroc": 99.8,
+          "pix_auroc": 65.0
+        },
+        "Steel_Sc": {
+          "n_test": 100,
+          "n_defect": 50,
+          "img_auroc": 98.1,
+          "pix_auroc": 75.5
+        },
+        "Rail": {
+          "n_test": 116,
+          "n_defect": 66,
+          "img_auroc": 98.1,
+          "pix_auroc": 94.1
+        },
+        "Leather": {
+          "n_test": 103,
+          "n_defect": 53,
+          "img_auroc": 100.0,
+          "pix_auroc": 80.3
+        },
+        "Tile": {
+          "n_test": 87,
+          "n_defect": 37,
+          "img_auroc": 99.9,
+          "pix_auroc": 55.6
+        }
+      },
+      "mean_img_auroc": 93.7,
+      "mean_pix_auroc": 68.9
+    },
+    "1": {
+      "per_class": {
+        "Al_Rm": {
+          "n_test": 73,
+          "n_defect": 23,
+          "img_auroc": 88.1,
+          "pix_auroc": 70.8
+        },
+        "Al_Con": {
+          "n_test": 90,
+          "n_defect": 40,
+          "img_auroc": 98.9,
+          "pix_auroc": 83.7
+        },
+        "MT_Uneven": {
+          "n_test": 88,
+          "n_defect": 61,
+          "img_auroc": 70.9,
+          "pix_auroc": 46.1
+        },
+        "MT_Break": {
+          "n_test": 98,
+          "n_defect": 56,
+          "img_auroc": 80.8,
+          "pix_auroc": 76.6
+        },
+        "MT_Fray": {
+          "n_test": 41,
+          "n_defect": 26,
+          "img_auroc": 99.5,
+          "pix_auroc": 57.3
+        },
+        "Steel_Ld": {
+          "n_test": 98,
+          "n_defect": 48,
+          "img_auroc": 100.0,
+          "pix_auroc": 90.6
+        },
+        "Steel_Am": {
+          "n_test": 100,
+          "n_defect": 50,
+          "img_auroc": 100.0,
+          "pix_auroc": 75.7
+        },
+        "Steel_Pa": {
+          "n_test": 100,
+          "n_defect": 50,
+          "img_auroc": 99.7,
+          "pix_auroc": 62.4
+        },
+        "Steel_Sc": {
+          "n_test": 100,
+          "n_defect": 50,
+          "img_auroc": 99.1,
+          "pix_auroc": 88.8
+        },
+        "Rail": {
+          "n_test": 116,
+          "n_defect": 66,
+          "img_auroc": 98.8,
+          "pix_auroc": 96.1
+        },
+        "Leather": {
+          "n_test": 103,
+          "n_defect": 53,
+          "img_auroc": 100.0,
+          "pix_auroc": 88.2
+        },
+        "Tile": {
+          "n_test": 87,
+          "n_defect": 37,
+          "img_auroc": 100.0,
+          "pix_auroc": 75.0
+        }
+      },
+      "mean_img_auroc": 94.6,
+      "mean_pix_auroc": 75.9
+    },
+    "4": {
+      "per_class": {
+        "Al_Rm": {
+          "n_test": 73,
+          "n_defect": 23,
+          "img_auroc": 83.2,
+          "pix_auroc": 69.1
+        },
+        "Al_Con": {
+          "n_test": 90,
+          "n_defect": 40,
+          "img_auroc": 99.0,
+          "pix_auroc": 84.3
+        },
+        "MT_Uneven": {
+          "n_test": 88,
+          "n_defect": 61,
+          "img_auroc": 74.3,
+          "pix_auroc": 48.4
+        },
+        "MT_Break": {
+          "n_test": 98,
+          "n_defect": 56,
+          "img_auroc": 84.1,
+          "pix_auroc": 81.4
+        },
+        "MT_Fray": {
+          "n_test": 41,
+          "n_defect": 26,
+          "img_auroc": 98.7,
+          "pix_auroc": 65.0
+        },
+        "Steel_Ld": {
+          "n_test": 98,
+          "n_defect": 48,
+          "img_auroc": 100.0,
+          "pix_auroc": 89.7
+        },
+        "Steel_Am": {
+          "n_test": 100,
+          "n_defect": 50,
+          "img_auroc": 100.0,
+          "pix_auroc": 76.8
+        },
+        "Steel_Pa": {
+          "n_test": 100,
+          "n_defect": 50,
+          "img_auroc": 99.8,
+          "pix_auroc": 63.0
+        },
+        "Steel_Sc": {
+          "n_test": 100,
+          "n_defect": 50,
+          "img_auroc": 99.2,
+          "pix_auroc": 89.1
+        },
+        "Rail": {
+          "n_test": 116,
+          "n_defect": 66,
+          "img_auroc": 98.8,
+          "pix_auroc": 95.5
+        },
+        "Leather": {
+          "n_test": 103,
+          "n_defect": 53,
+          "img_auroc": 100.0,
+          "pix_auroc": 87.7
+        },
+        "Tile": {
+          "n_test": 87,
+          "n_defect": 37,
+          "img_auroc": 100.0,
+          "pix_auroc": 75.4
+        }
+      },
+      "mean_img_auroc": 94.8,
+      "mean_pix_auroc": 77.1
+    }
+  }
+}

@@ -1,0 +1,75 @@
+# 工位配置:产线形态(Surface Defects-4i 金属表面缺陷)
+#
+# 与 line_mvtec_tile.yaml 的差别,正是"数据集 → 产线"的三处关键升级:
+#   1. illum_norm: clahe  —— 4i 缺陷图与正常参考图整体亮度不一致(实测
+#      钢类 Nd 灰度 94.7±11.8 vs 缺陷图 113~150),不归一化会大面积误报
+#   2. ROI 分级 —— 核心区优先拿算力,避免把预算花在工况边缘
+#   3. 早退 + 节拍预算 —— 良品帧不算窗口,把算力留给可疑件
+#
+# 注意:此处 threshold 均为占位值,上线前必须用 scripts/line_calib.py
+# 在良品集上标定,禁止用缺陷 GT 反推阈值。
+schema_version: 1
+
+station_id: "ST02-STEEL"
+class_name: "Steel_Sc"
+
+deploy_dir: "data/deploy"
+text_dir: "data/deploy/text_protos"
+device: "CPU"
+
+geometry:
+  mode: pre_cropped
+  pixel_size_mm: 0.0          # 现场按实际视野/分辨率填,例如 200px 视野 40mm → 0.2
+
+roi:
+  # 归一化坐标(x0,y0,x1,y1);现场按工装实测填
+  core: [0.10, 0.10, 0.90, 0.90]
+  edge: []
+  exclude: []
+  edge_band: 0.08             # 自动生成四周 8% 边缘带(权重降为 weight_edge)
+  weight_core: 1.0
+  weight_edge: 0.35           # 边缘误报高发,降权而非屏蔽(仍参与判定)
+
+cv:
+  illum_norm: "clahe"         # 产线关键差异:光照归一化
+  clahe_clip: 2.0
+  clahe_grid: 8
+  flatfield_path: ""          # 有平场标定数据时改 flatfield,更稳
+  w_local_std: 1.0
+  w_grad: 0.6
+  w_range: 0.3
+  morph_kernel: 3
+  candidate_quantile: 0.85
+  min_candidates: 24
+  max_candidates: 120
+
+cascade:
+  use_cv_prescreen: true
+  early_exit_enable: false    # 标定出 guard 文件后再置 true
+  early_exit_guard_path: "data/deploy/guard_Steel_Sc.json"
+  early_exit_margin: 1.0
+  win_score_cv_weight: 0.5
+  use_few: true
+
+takt:
+  takt_ms: 1200.0             # 50 件/分 ≈ 1200ms/件
+  safety_margin_ms: 150.0     # 留给相机触发/PLC 握手/剔除机构
+  ms_per_token: 0.0
+  cost_model_path: "data/deploy/cost_model.json"
+  overrun_policy: "drop_windows"
+  min_windows: 8
+
+verdict:
+  map_threshold: 0.5          # ← 必须由良品标定覆盖
+  min_defect_area: 16.0       # pixel_size_mm=0 时按像素;标定后按 mm²
+  open_kernel: 1
+  close_kernel: 1
+  image_threshold: 0.5        # ← 必须由良品标定覆盖
+  review_band: 0.08           # 阈值 ±0.08 内转人工复检,降低过杀成本
+
+io:
+  trigger: "sequence"
+  frame_source: "/home/asus/桌面/JD/TGRNet/MSD-Seg2/Steel_Sc/Images"
+  reject_output: "log"
+  fps_limit: 0.0
+  output_dir: "logs/line"

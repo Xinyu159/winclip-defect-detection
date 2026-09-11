@@ -1,9 +1,16 @@
-# 环境与数据(不上传)
+# 环境
 .venv/
-data/
 __pycache__/
 *.pyc
+.cache_alive
 
-# 实验产物:log 与可视化留本地存档
-logs/
+# 数据集与模型权重(大,可下载/可重建。用 data/* 而不是 data/,
+# 才能给下面的冻结清单开一个例外 —— data/ 会把整个目录挡死,例外加不进去)
+data/*
+!data/dataset_manifest.json
+
+# 特征缓存(3.2 G,可重建但要几小时。实体在 artifacts/,不进城)
+artifacts/
+
+# 可视化产物
 *.html

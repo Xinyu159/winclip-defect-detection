@@ -1,0 +1,154 @@
+{
+  "hw": {
+    "hostname": "autodl-container-7vjvsmxv6l-8579d1fe",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+    "python": "3.10.21",
+    "gpu": "NVIDIA GeForce RTX 3080 Ti, 595.71.05, 12288 MiB",
+    "compute_cap": "8.6",
+    "ort": "1.23.2",
+    "ort_providers": [
+      "TensorrtExecutionProvider",
+      "CUDAExecutionProvider",
+      "CPUExecutionProvider"
+    ]
+  },
+  "n_warm": 10,
+  "n_iter": 50,
+  "classes": [
+    "tile",
+    "bottle"
+  ],
+  "configs": [
+    {
+      "name": "int8cpu",
+      "deploy": "data/deploy_onnx_int8",
+      "provider": "CPUExecutionProvider",
+      "per_class": {
+        "tile": {
+          "e2e_full": {
+            "p50_ms": 2076.25,
+            "p95_ms": 2510.86,
+            "mean_ms": 2106.0,
+            "min_ms": 1881.39,
+            "n": 50
+          }
+        },
+        "bottle": {
+          "e2e_full": {
+            "p50_ms": 2420.77,
+            "p95_ms": 2591.57,
+            "mean_ms": 2449.91,
+            "min_ms": 2327.16,
+            "n": 50
+          }
+        }
+      },
+      "budget_ms": {
+        "tile": {
+          "4": {
+            "p50_ms": 193.96,
+            "p95_ms": 202.78,
+            "mean_ms": 178.17,
+            "min_ms": 108.67,
+            "n": 50
+          },
+          "8": {
+            "p50_ms": 291.21,
+            "p95_ms": 300.7,
+            "mean_ms": 269.84,
+            "min_ms": 201.28,
+            "n": 50
+          },
+          "16": {
+            "p50_ms": 397.8,
+            "p95_ms": 471.64,
+            "mean_ms": 399.3,
+            "min_ms": 318.16,
+            "n": 50
+          },
+          "32": {
+            "p50_ms": 575.39,
+            "p95_ms": 588.88,
+            "mean_ms": 558.61,
+            "min_ms": 516.0,
+            "n": 50
+          },
+          "64": {
+            "p50_ms": 997.44,
+            "p95_ms": 1017.35,
+            "mean_ms": 992.47,
+            "min_ms": 922.54,
+            "n": 50
+          },
+          "128": {
+            "p50_ms": 1801.21,
+            "p95_ms": 1903.58,
+            "mean_ms": 1811.45,
+            "min_ms": 1692.24,
+            "n": 50
+          }
+        },
+        "bottle": {
+          "4": {
+            "p50_ms": 199.41,
+            "p95_ms": 288.12,
+            "mean_ms": 203.81,
+            "min_ms": 110.07,
+            "n": 50
+          },
+          "8": {
+            "p50_ms": 292.7,
+            "p95_ms": 305.88,
+            "mean_ms": 277.53,
+            "min_ms": 210.04,
+            "n": 50
+          },
+          "16": {
+            "p50_ms": 391.63,
+            "p95_ms": 401.87,
+            "mean_ms": 377.64,
+            "min_ms": 308.89,
+            "n": 50
+          },
+          "32": {
+            "p50_ms": 580.7,
+            "p95_ms": 595.63,
+            "mean_ms": 565.94,
+            "min_ms": 515.64,
+            "n": 50
+          },
+          "64": {
+            "p50_ms": 972.96,
+            "p95_ms": 1015.08,
+            "mean_ms": 958.73,
+            "min_ms": 872.33,
+            "n": 50
+          },
+          "128": {
+            "p50_ms": 1742.3,
+            "p95_ms": 1948.63,
+            "mean_ms": 1777.71,
+            "min_ms": 1624.57,
+            "n": 50
+          }
+        }
+      },
+      "active_provider": "CPUExecutionProvider",
+      "model_sizes_mb": {
+        "patcher": 3.6,
+        "full": 117.0,
+        "w5": 117.2,
+        "w10": 117.2
+      }
+    }
+  ],
+  "budgets": [
+    4,
+    8,
+    16,
+    32,
+    64,
+    128
+  ],
+  "ts": "2026-09-10 17:13:51"
+}

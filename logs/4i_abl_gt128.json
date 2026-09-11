@@ -1,0 +1,35 @@
+{
+  "script": "evaluate.py",
+  "time": "2026-09-10 23:32:52",
+  "tag": "4i_gt128",
+  "data_root": "/root/autodl-tmp/4i_gt128",
+  "classes": [
+    "Tile",
+    "Leather"
+  ],
+  "shots": "0",
+  "seed": 42,
+  "weights": "/root/autodl-tmp/winclip_official/vit_b_16_plus_240-laion400m_e31-8fb26589.pt",
+  "device": "cuda",
+  "prompt_map": "data/4i_prompt_map.json",
+  "results": {
+    "0": {
+      "per_class": {
+        "Tile": {
+          "n_test": 87,
+          "n_defect": 37,
+          "img_auroc": 100.0,
+          "pix_auroc": 54.9
+        },
+        "Leather": {
+          "n_test": 103,
+          "n_defect": 53,
+          "img_auroc": 100.0,
+          "pix_auroc": 81.1
+        }
+      },
+      "mean_img_auroc": 100.0,
+      "mean_pix_auroc": 68.0
+    }
+  }
+}
