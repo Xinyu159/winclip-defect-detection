@@ -1,0 +1,35 @@
+{
+  "script": "eval_ov.py --bench",
+  "classes": [
+    "bottle"
+  ],
+  "stages": {},
+  "per_class_frames": {
+    "bottle": {
+      "patcher_ms": {
+        "median_ms": 3.95,
+        "p90_ms": 5.09
+      },
+      "full_ms": {
+        "median_ms": 348.88,
+        "p90_ms": 388.87
+      },
+      "wins_ms": {
+        "median_ms": 4859.35,
+        "p90_ms": 4995.17
+      },
+      "mix_ms": {
+        "median_ms": 0.08,
+        "p90_ms": 0.09
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    }
+  },
+  "ts": "20260914_003956",
+  "engine": "openvino",
+  "device": "cpu",
+  "tag": "smoke_localov"
+}

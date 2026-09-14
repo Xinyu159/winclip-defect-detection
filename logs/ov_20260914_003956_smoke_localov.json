@@ -1,0 +1,32 @@
+{
+  "script": "eval_ov.py",
+  "time": "2026-09-14 00:39:56",
+  "tag": "smoke_localov",
+  "classes": [
+    "bottle"
+  ],
+  "engine": "openvino",
+  "device": "cpu",
+  "deploy": "data/deploy",
+  "model_sizes_mb": {
+    "patcher": 3.6,
+    "full": 465.8,
+    "w5": 465.8,
+    "w10": 465.8
+  },
+  "shots_arg": "0",
+  "results": {
+    "0": {
+      "per_class": {
+        "bottle": {
+          "n_test": 83,
+          "n_defect": 63,
+          "img_auroc": 98.6,
+          "pix_auroc": 88.9
+        }
+      },
+      "mean_img_auroc": 98.6,
+      "mean_pix_auroc": 88.9
+    }
+  }
+}

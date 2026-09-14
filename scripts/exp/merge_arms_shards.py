@@ -35,10 +35,17 @@ def main(paths) -> int:
             classes.append(c)
             n_img[c] = s["n"][c]
 
-    arms = list(shards[0]["arms"])
-    for s in shards[1:]:
-        if list(s["arms"]) != arms:
-            raise SystemExit("★ 各片的臂表不一致,不能合并")
+    # ★ 臂表随每个类的库大小变(G_k 只在 k<=n_bank 时建),所以各片取交集 ——
+    # 不能因为一片没 G_8 就拒绝合并整张表。被剔的臂明确报出来,不静默丢。
+    order = list(shards[0]["arms"])
+    common = set.intersection(*[set(s["arms"]) for s in shards])
+    arms = [a for a in order if a in common]
+    for a in sorted(set.union(*[set(s["arms"]) for s in shards]) - common):
+        who = [f"{p}({len(s['classes'])}类)" for p, s in zip(paths, shards)
+               if a not in s["arms"]]
+        print(f"   ★ 臂 {a} 非每片都有,已从主表剔除;缺它的片: {', '.join(who)}")
+    if not arms:
+        raise SystemExit("★ 各片没有任何公共臂,合并没有意义")
 
     # 各片的 arms[a][m] 是按该片 classes 顺序对齐的,直接首尾相接
     val = {m: {a: [] for a in arms} for m in METRICS}

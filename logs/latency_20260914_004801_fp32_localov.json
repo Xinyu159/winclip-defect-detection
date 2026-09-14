@@ -1,0 +1,357 @@
+{
+  "script": "eval_ov.py --bench",
+  "classes": [
+    "bottle",
+    "cable",
+    "capsule",
+    "carpet",
+    "grid",
+    "hazelnut",
+    "leather",
+    "metal_nut",
+    "pill",
+    "screw",
+    "tile",
+    "toothbrush",
+    "transistor",
+    "wood",
+    "zipper"
+  ],
+  "stages": {},
+  "per_class_frames": {
+    "bottle": {
+      "patcher_ms": {
+        "median_ms": 4.05,
+        "p90_ms": 5.0
+      },
+      "full_ms": {
+        "median_ms": 368.68,
+        "p90_ms": 417.07
+      },
+      "wins_ms": {
+        "median_ms": 5007.71,
+        "p90_ms": 5203.0
+      },
+      "mix_ms": {
+        "median_ms": 0.08,
+        "p90_ms": 0.09
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "cable": {
+      "patcher_ms": {
+        "median_ms": 3.77,
+        "p90_ms": 5.04
+      },
+      "full_ms": {
+        "median_ms": 335.67,
+        "p90_ms": 375.43
+      },
+      "wins_ms": {
+        "median_ms": 4700.88,
+        "p90_ms": 5000.23
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.09
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "capsule": {
+      "patcher_ms": {
+        "median_ms": 3.22,
+        "p90_ms": 4.09
+      },
+      "full_ms": {
+        "median_ms": 278.26,
+        "p90_ms": 301.15
+      },
+      "wins_ms": {
+        "median_ms": 4102.32,
+        "p90_ms": 4174.88
+      },
+      "mix_ms": {
+        "median_ms": 0.06,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "carpet": {
+      "patcher_ms": {
+        "median_ms": 3.22,
+        "p90_ms": 4.15
+      },
+      "full_ms": {
+        "median_ms": 277.79,
+        "p90_ms": 298.97
+      },
+      "wins_ms": {
+        "median_ms": 4015.7,
+        "p90_ms": 4054.69
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "grid": {
+      "patcher_ms": {
+        "median_ms": 3.2,
+        "p90_ms": 4.15
+      },
+      "full_ms": {
+        "median_ms": 285.11,
+        "p90_ms": 310.92
+      },
+      "wins_ms": {
+        "median_ms": 4019.49,
+        "p90_ms": 4060.72
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "hazelnut": {
+      "patcher_ms": {
+        "median_ms": 3.17,
+        "p90_ms": 4.02
+      },
+      "full_ms": {
+        "median_ms": 278.96,
+        "p90_ms": 301.72
+      },
+      "wins_ms": {
+        "median_ms": 4015.71,
+        "p90_ms": 4055.33
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.08
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "leather": {
+      "patcher_ms": {
+        "median_ms": 3.26,
+        "p90_ms": 4.06
+      },
+      "full_ms": {
+        "median_ms": 278.23,
+        "p90_ms": 303.71
+      },
+      "wins_ms": {
+        "median_ms": 4017.22,
+        "p90_ms": 4061.44
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "metal_nut": {
+      "patcher_ms": {
+        "median_ms": 3.28,
+        "p90_ms": 4.19
+      },
+      "full_ms": {
+        "median_ms": 286.05,
+        "p90_ms": 314.94
+      },
+      "wins_ms": {
+        "median_ms": 4035.39,
+        "p90_ms": 4074.43
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "pill": {
+      "patcher_ms": {
+        "median_ms": 3.16,
+        "p90_ms": 3.93
+      },
+      "full_ms": {
+        "median_ms": 283.18,
+        "p90_ms": 306.0
+      },
+      "wins_ms": {
+        "median_ms": 4030.89,
+        "p90_ms": 4068.15
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "screw": {
+      "patcher_ms": {
+        "median_ms": 3.31,
+        "p90_ms": 4.23
+      },
+      "full_ms": {
+        "median_ms": 283.75,
+        "p90_ms": 314.64
+      },
+      "wins_ms": {
+        "median_ms": 4023.39,
+        "p90_ms": 4071.34
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "tile": {
+      "patcher_ms": {
+        "median_ms": 3.36,
+        "p90_ms": 4.25
+      },
+      "full_ms": {
+        "median_ms": 281.48,
+        "p90_ms": 306.84
+      },
+      "wins_ms": {
+        "median_ms": 4022.19,
+        "p90_ms": 4070.29
+      },
+      "mix_ms": {
+        "median_ms": 0.06,
+        "p90_ms": 0.08
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "toothbrush": {
+      "patcher_ms": {
+        "median_ms": 3.13,
+        "p90_ms": 4.16
+      },
+      "full_ms": {
+        "median_ms": 276.98,
+        "p90_ms": 302.82
+      },
+      "wins_ms": {
+        "median_ms": 4016.71,
+        "p90_ms": 4054.73
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "transistor": {
+      "patcher_ms": {
+        "median_ms": 3.17,
+        "p90_ms": 4.09
+      },
+      "full_ms": {
+        "median_ms": 297.15,
+        "p90_ms": 310.61
+      },
+      "wins_ms": {
+        "median_ms": 4033.97,
+        "p90_ms": 4073.49
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "wood": {
+      "patcher_ms": {
+        "median_ms": 3.26,
+        "p90_ms": 3.95
+      },
+      "full_ms": {
+        "median_ms": 274.96,
+        "p90_ms": 304.74
+      },
+      "wins_ms": {
+        "median_ms": 4022.61,
+        "p90_ms": 4069.8
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    },
+    "zipper": {
+      "patcher_ms": {
+        "median_ms": 3.26,
+        "p90_ms": 4.07
+      },
+      "full_ms": {
+        "median_ms": 285.12,
+        "p90_ms": 314.57
+      },
+      "wins_ms": {
+        "median_ms": 4031.9,
+        "p90_ms": 4074.06
+      },
+      "mix_ms": {
+        "median_ms": 0.07,
+        "p90_ms": 0.07
+      },
+      "few_ms": {
+        "median_ms": 0.0,
+        "p90_ms": 0.0
+      }
+    }
+  },
+  "ts": "20260914_004801",
+  "engine": "openvino",
+  "device": "cpu",
+  "tag": "fp32_localov"
+}

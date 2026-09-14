@@ -32,6 +32,17 @@
 **所有臂共用**(各臂差别只在 `reduce_sim` 的配置上);`G_k` 更是连重建库都不用
 —— 全量 sim 沿 K 轴切片,与"先建子库再算"逐位等价(门 3 已验)。
 
+## ★ 分块(`--chunk`):算一块、用完即弃
+
+峰值内存 ∝ `chunk`,**不再 ∝ 库张数 × 查询图数**。原先把**所有**查询图的 sim 张量
+一次性留在内存里(`sims = [...]` 一行),单图 ≈ `K × (225²+169²+196²) × 4B`,
+总量 ∝ `K × (K + n_bad)`:P1 最大 cable 才 1.5 GB,到 P2 就是 hazelnut **22.6 GB**
+—— 超过本机 23 GB 且**交换区为 0**,被内核 SIGKILL,**无 traceback、无 flush,
+日志只剩表头**(2026-09-12,三片同时死)。
+
+`--chunk 0` = 整批(老路径)。**保留它不是历史包袱,是为了让"分块 vs 不分块
+逐位相同"可被永久复验**(门 6)—— 分块只该改峰值内存,一个 bit 都不该改。
+
 ## 自检门(--selftest,改任何东西后先跑它)
 
     门1  r=14 与现行 `_few_token_score` 逐位一致            <1e-6
@@ -39,6 +50,8 @@
     门3  K 轴切片 vs 重建子库                                <1e-6
     门4  B ≤ A 恒成立(库只增 ⇒ 分数只降)
     门5  **整条 few_map 组装**与 shot_scaling.py:90-97 的 `few_map_of` 逐位一致
+
+    门6  分块正确性 —— **另跑** `--chunkgate`(要真跑两次 `run_once`,几十秒)
 
 门 5 是最强的一道:它验的不是某个函数,是"用库算出的 few_map 与流水线里那条
 用 gallery 算出的 few_map 是同一个东西"。
@@ -89,6 +102,11 @@ def parse_args():
     ap.add_argument("--reps", type=int, default=5, help="重复次数(每次重画对半切)")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--selftest", action="store_true", help="只跑 5 道自检门")
+    ap.add_argument("--chunk", type=int, default=8,
+                    help="每块查询图数(算一块丢一块)。0 = 整批,老路径;"
+                         "分块与整批**逐位相同**,由 --chunkgate 保证")
+    ap.add_argument("--chunkgate", action="store_true",
+                    help="门 6:同一类同一 rep,--chunk 0 与 --chunk N 必须逐位相同")
     ap.add_argument("--out", default="/tmp/bank_arms_result.json",
                     help="逐类原始数字落盘路径。按类分片跑时各片写各的,再合并")
     return ap.parse_args()
@@ -138,6 +156,21 @@ def arms_for(n_bank):
     return out
 
 
+def shared_arms(per_class):
+    """→ (所有类都有的臂[保持臂表原顺序], 被剔除的臂)。
+
+    ★ 臂表**随每个类的库大小变**(`G_k` 只在 `k <= n_bank` 时才建),所以**不能**拿
+    某一个类的臂表当全局表 —— 2026-09-12 三片 P1 就是这样全崩的:汇总时用第一个类
+    (库大、有 `G_16`)的臂表去取后面类(库小、无 `G_16`)的数,`KeyError` 抛在
+    **所有类算完之后、写 JSON 之前** ⇒ 三片算力全花、零落盘。
+    """
+    sets_ = [{k for k in runs[0] if k != "_n"} for runs in per_class.values()]
+    common = set.intersection(*sets_)
+    order = [k for k in per_class[next(iter(per_class))][0] if k != "_n"]
+    return ([k for k in order if k in common],
+            [k for k in sorted(set.union(*sets_)) if k not in common])
+
+
 def auc_px(scores, gts):
     return float(roc_auc_score(np.concatenate(gts), np.concatenate(scores))) * 100
 
@@ -147,10 +180,20 @@ def auc_img(good_s, bad_s):
     return float(roc_auc_score(y, np.r_[good_s, bad_s])) * 100
 
 
+def blocks(n, chunk):
+    """(n 张查询图)→ [(lo, hi), ...]。**chunk<=0 → 单块 = 整批(老路径)**。
+
+    保留整批这条路,是为了让门 6(`--chunkgate`)"分块 vs 不分块逐位相同"
+    能永久复验 —— 否则验证一次就没了参照物。
+    """
+    step = n if chunk <= 0 else chunk
+    return [(lo, min(lo + step, n)) for lo in range(0, n, step)]
+
+
 # ----------------------------------------------------------------------
 # 一轮(一个 rep,一个类)
 # ----------------------------------------------------------------------
-def run_once(cls, pool_dir, bad, text, idx3, idx2, rep, seed, leak_check):
+def run_once(cls, pool_dir, bad, text, idx3, idx2, rep, seed, leak_check, chunk=8):
     proto = Path(text) / f"{cls}.npz"
     d = np.load(proto)
     pos, neg, temp = d["normal"], d["abnormal"], float(d["temp"])
@@ -182,31 +225,46 @@ def run_once(cls, pool_dir, bad, text, idx3, idx2, rep, seed, leak_check):
     bad_zero = [zero_maps(z, pos, neg, temp, idx3, idx2) for z in bad]
     gts = [z["gt"].flatten() for z in bad]
 
-    # ---- 所有查询图的 sim 只算一次,全部臂共用 ----
+    # ---- 分块扫全臂:算一块、用完即弃 ----
+    # 峰值内存 ∝ chunk,不再 ∝ 库张数 × 查询图数(见模块 docstring)。
+    # **算术与整批逐位相同**(门 6 保证),理由是拆得干净:
+    #   · few_map_from_sim 逐图独立 —— 与它周围的图是谁无关
+    #   · AUC 仍在**全量拼接**上算一次,不是逐块算再平均(后者会换成另一个数)
+    #   · 累加器只 append,顺序仍 = eval_npz + bad 的原序
+    arms = arms_for(bank.n_img)
+    n_good = len(eval_npz)
     q_npz = eval_npz + bad
-    sims = [{s: sim_of(bank, z, s) for s in SCALES} for z in q_npz]
+    acc = {nm: {"px_prod": [], "px_bank": [], "s_good": [], "s_bad": []}
+           for nm, _c, _k in arms}
 
-    rows = {}
-    for name, cfg, k in arms_for(bank.n_img):
-        if cfg is None:                                   # Z0:不用库
-            fm = [np.zeros(N_PATCH, np.float32)] * len(q_npz)
-        else:
-            sims_k = sims if k is None else \
-                [{s: v[:, :, :k] for s, v in sd.items()} for sd in sims]
-            fm = [few_map_from_sim(sd, bank.rc, cfg, idx3, idx2) for sd in sims_k]
+    for lo, hi in blocks(len(q_npz), chunk):
+        sims_blk = [{s: sim_of(bank, z, s) for s in SCALES} for z in q_npz[lo:hi]]
+        sims_k = fm = None                                # 供块尾统一断引用
+        for nm, cfg, k in arms:
+            if cfg is None:                               # Z0:不用库
+                fm = [np.zeros(N_PATCH, np.float32)] * (hi - lo)
+            else:
+                sims_k = sims_blk if k is None else \
+                    [{s: v[:, :, :k] for s, v in sd.items()} for sd in sims_blk]
+                fm = [few_map_from_sim(sd, bank.rc, cfg, idx3, idx2) for sd in sims_k]
+            for j, f in enumerate(fm):
+                i = lo + j                                # 全局查询下标
+                if i < n_good:                            # 良品只进 image 分
+                    _m, cp = good_zero[i]
+                    acc[nm]["s_good"].append(float((cp + f.max()) / 2))
+                else:                                     # 缺陷三条都要
+                    m, cp = bad_zero[i - n_good]
+                    acc[nm]["s_bad"].append(float((cp + f.max()) / 2))
+                    acc[nm]["px_prod"].append(up_to_gt(m + f))
+                    acc[nm]["px_bank"].append(up_to_gt(f))
+        # ★ 显式断引用:sims_k 是 sims_blk 的**视图**,留着它整块就释放不掉。
+        # 置 None 而不是 del —— 下一轮会重新绑定,置 None 不会抛 NameError。
+        sims_blk = sims_k = fm = None
 
-        n_good = len(eval_npz)
-        # 生产图 = m_zero + few_map(与 pipeline.py:178-207 同构)
-        s_good = [float((cp + f.max()) / 2) for f, (_m, cp) in zip(fm[:n_good], good_zero)]
-        s_bad = [float((cp + f.max()) / 2) for f, (_m, cp) in zip(fm[n_good:], bad_zero)]
-        px_prod = [up_to_gt(m + f) for f, (m, _cp) in zip(fm[n_good:], bad_zero)]
-        px_bank = [up_to_gt(f) for f in fm[n_good:]]
-
-        rows[name] = {
-            "px_prod": auc_px(px_prod, gts),
-            "px_bank": auc_px(px_bank, gts),
-            "img": auc_img(s_good, s_bad),
-        }
+    rows = {nm: {"px_prod": auc_px(acc[nm]["px_prod"], gts),
+                 "px_bank": auc_px(acc[nm]["px_bank"], gts),
+                 "img": auc_img(acc[nm]["s_good"], acc[nm]["s_bad"])}
+            for nm, _c, _k in arms}
     rows["_n"] = {"bank": bank.n_img, "eval_good": len(eval_npz), "bad": len(bad)}
     return rows
 
@@ -288,10 +346,60 @@ def selftest(a) -> int:
 
 
 # ----------------------------------------------------------------------
+# 门 6:分块正确性
+# ----------------------------------------------------------------------
+def chunkgate(a) -> int:
+    """整批(--chunk 0)与分块(--chunk N)必须**逐位相同**。
+
+    分块只该改峰值内存,一个 bit 都不该改。判据用**精确相等**、不给容差 ——
+    两边跑的是同一串浮点运算、同一个拼接顺序,差 1e-16 就说明拆错了地方
+    (最可能是 AUC 被改成逐块算再平均,或累加顺序乱了)。
+    """
+    idx3 = np.load(Path(a.deploy) / "win_idx_k3.npy")
+    idx2 = np.load(Path(a.deploy) / "win_idx_k2.npy")
+    pool_dir = a.good if a.pool == "p1" else a.train
+    cls = "bottle" if a.classes == "all" else a.classes.split(",")[0]
+    n = len(sorted(Path(pool_dir, cls).glob("[0-9]*.npz")))
+    bad = load_npz(Path(a.bad) / cls, only_gt=True)
+    nb = len(blocks(n, a.chunk))
+    print(f"门6  分块正确性 | 类={cls} | 库池 {a.pool}(良品 {n} 张) | 缺陷 {len(bad)} 张")
+    print(f"     整批 chunk=0  vs  分块 chunk={a.chunk}(查询 {n // 2 * 2 + len(bad)} 张"
+          f",切成 {nb} 块)")
+
+    r0 = run_once(cls, pool_dir, bad, a.text, idx3, idx2, 0, a.seed, True, 0)
+    rN = run_once(cls, pool_dir, bad, a.text, idx3, idx2, 0, a.seed, True, a.chunk)
+    if r0 is None or rN is None:
+        print("     ★ 良品池太薄,换一个类再跑")
+        return 1
+
+    ok = True
+    names = [k for k in r0 if k != "_n"]
+    for name in names:
+        for m in ("px_prod", "px_bank", "img"):
+            d = abs(r0[name][m] - rN[name][m])
+            if d != 0.0:
+                ok = False
+                print(f"     ★ {name:8s} {m:8s} Δ={d:.3e}  "
+                      f"整批={r0[name][m]:.10f} 分块={rN[name][m]:.10f}")
+    if r0["_n"] != rN["_n"]:
+        ok = False
+        print(f"     ★ 计数不一致: {r0['_n']} vs {rN['_n']}")
+
+    show = names[-1]
+    print(f"     （{len(names)} 条臂 × 3 个指标全部比对;"
+          f"样例 {show}: 整批 {r0[show]['px_prod']:.6f} / 分块 {rN[show]['px_prod']:.6f}）")
+    print(f"\n{'=' * 60}")
+    print(f"门6 {'✓ 通过 —— 分块与整批逐位相同,可以起 P2' if ok else '✗ 未通过 —— 分块改了算术,不许跑'}")
+    return 0 if ok else 1
+
+
+# ----------------------------------------------------------------------
 def main() -> int:
     a = parse_args()
     if a.selftest:
         return selftest(a)
+    if a.chunkgate:
+        return chunkgate(a)
 
     idx3 = np.load(Path(a.deploy) / "win_idx_k3.npy")
     idx2 = np.load(Path(a.deploy) / "win_idx_k2.npy")
@@ -301,6 +409,8 @@ def main() -> int:
 
     print("阶段 2:A/B 全臂扫描 | 零推理 | 库池 =", a.pool, pool_dir)
     print(f"  对半切 seed={a.seed} reps={a.reps} | 口径 = pixel_replay(evaluate.py 同源)")
+    print(f"  分块 --chunk={a.chunk}" + ("(整批,老路径)" if a.chunk <= 0 else "")
+          + "  ← 与整批逐位相同,门 6 已验")
     print("  map_prod = m_zero + few_map(生产图,§五判据用这条)  map_bank = few_map")
 
     if not Path(pool_dir).is_dir():
@@ -310,6 +420,19 @@ def main() -> int:
 
     t0 = time.time()
     per_class = {}
+
+    def save(partial):
+        """每类跑完立刻落盘 —— 只在最后写一次的话,一崩就全丢(2026-09-12 的教训)。"""
+        arm_list, _ = shared_arms(per_class)
+        Path(a.out).write_text(json.dumps(
+            {"pool": a.pool, "reps": a.reps, "seed": a.seed, "partial": partial,
+             "n": {c: v[0]["_n"] for c, v in per_class.items()},
+             "arms": {k: {m: [float(np.mean([r[k][m] for r in v]))
+                              for v in per_class.values()]
+                          for m in ("px_prod", "px_bank", "img")}
+                      for k in arm_list},
+             "classes": list(per_class)}, ensure_ascii=False, indent=1), encoding="utf-8")
+
     for cls in classes:
         bad = load_npz(Path(a.bad) / cls, only_gt=True)
         if not bad:
@@ -318,13 +441,14 @@ def main() -> int:
         runs = []
         for rep in range(a.reps):
             r = run_once(cls, pool_dir, bad, a.text, idx3, idx2, rep, a.seed,
-                         leak_check=(rep == 0))
+                         leak_check=(rep == 0), chunk=a.chunk)
             if r is not None:
                 runs.append(r)
         if not runs:
             print(f"{cls:12s} 良品池太薄,跳过")
             continue
         per_class[cls] = runs
+        save(True)
         nm = runs[0]["_n"]
         dt = time.time() - t0
         arms = [k for k in runs[0] if k != "_n"]
@@ -338,7 +462,14 @@ def main() -> int:
         print("没有跑出任何类")
         return 1
 
-    arms = [k for k in per_class[next(iter(per_class))][0] if k != "_n"]
+    arms, dropped = shared_arms(per_class)
+    if dropped:
+        print("\n★ 臂表随每个类的库大小变;主表只列**每个类都有**的臂(取交集)。")
+        print("  下列臂**跑了但没进主表**,不是没跑:")
+        for k in dropped:
+            miss = sorted(c for c, v in per_class.items() if k not in v[0])
+            print(f"    {k:8s} 有 {len(per_class) - len(miss):2d}/{len(per_class)} 类"
+                  f",缺: {', '.join(miss)}")
 
     def agg(arm, metric):
         return [float(np.mean([r[arm][metric] for r in runs]))
@@ -349,7 +480,7 @@ def main() -> int:
           f"{a.reps} reps 的逐类均值")
     print("=" * 96)
     print(f"{'臂':9s}" + "".join(f"{c[:9]:>10s}" for c in per_class) +
-          f"{'15类均值':>10s}{'vs G_4':>9s}{'胜/平/负':>11s}")
+          f"{f'{len(per_class)}类均值':>10s}{'vs G_4':>9s}{'胜/平/负':>11s}")
     ref = agg("G_4", "px_prod") if "G_4" in arms else None
     for arm in arms:
         v = agg(arm, "px_prod")
@@ -377,14 +508,8 @@ def main() -> int:
         print(f"{arm:9s}" + "".join(f"{x:10.1f}" for x in v) +
               f"{np.mean(v):10.1f}   |  {vi:9.1f}")
 
-    out = {"pool": a.pool, "reps": a.reps, "seed": a.seed,
-           "n": {c: per_class[c][0]["_n"] for c in per_class},
-           "arms": {arm: {m: agg(arm, m) for m in ("px_prod", "px_bank", "img")}
-                    for arm in arms},
-           "classes": list(per_class)}
-    p = Path(a.out)
-    p.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"\n原始数字 → {p}")
+    save(False)
+    print(f"\n原始数字 → {a.out}")
     print(f"总耗时 {time.time() - t0:.0f}s")
     return 0
 

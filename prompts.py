@@ -49,17 +49,52 @@ TEMPLATES = [
 ]
 
 
-def build_class_prompts(cls_name: str) -> dict[str, list[str]]:
+def _object_name(cls: str, override: str | None) -> str:
+    """类名 → 填进模板槽位的物体名。
+
+    4i 的类名是数据集标识符(Steel_Sc),直接进模板会得到
+    "a photo of a Steel_Sc for anomaly detection." —— 不是自然语言,
+    CLIP 文本塔拿到的等于噪声。故先查 classes4i.OBJECT 换成材料名词
+    ("steel surface")。MVTec 类名本身就是自然语言(bottle),原样用。
+
+    OBJECT 读的是 data/4i_prompt_map.json —— 权威转换脚本
+    scripts/make_4i_mvtec.py 的产物,不是手抄表。
+    """
+    if override:
+        return override
+    try:
+        from classes4i import OBJECT
+        if cls in OBJECT:
+            return OBJECT[cls]
+    except ImportError:
+        pass
+    return cls
+
+
+def build_class_prompts(cls_name: str, object_name: str | None = None,
+                        defect_terms: list[str] | None = None
+                        ) -> dict[str, list[str]]:
     """某物体名(如 "bottle")→ {'normal': [...], 'abnormal': [...]}。
 
     排列按状态词主序(每个状态词下所有模板连续),以便 reshape 求均值。
+
+    defect_terms:可选,给**异常态词**追加缺陷名("with scratch" 等)。
+        仅用于 4i 这类"一个类就是一种缺陷"的数据集 —— 那里缺陷名是已知先验,
+        不写进去等于白丢信息。默认 None = 严格 CPE 原式。
+        ★ 这是**偏离 CPE 的臂**,报表里必须与默认臂分开列,不能混。
     """
+    obj = _object_name(cls_name, object_name)
+
+    abn = list(ABNORMAL_STATE_WORDS)
+    for t in (defect_terms or []):
+        abn += [f"{t} on the {{}}", f"{{}} with {t}"]
+
     def _gen(state_words):
-        return [tpl.format(st.format(cls_name))
+        return [tpl.format(st.format(obj))
                 for st in state_words for tpl in TEMPLATES]
 
     return {"normal": _gen(NORMAL_STATE_WORDS),
-            "abnormal": _gen(ABNORMAL_STATE_WORDS)}
+            "abnormal": _gen(abn)}
 
 
 if __name__ == "__main__":
